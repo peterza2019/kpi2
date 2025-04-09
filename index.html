@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TravelGrowth Pro+ Dashboard (Final Version)</title>
+    <!-- Chart.js and Date Adapter -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <!-- Tablesort JS (no integrity check) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/tablesort.min.js"></script>
+
+    <style>
+        /* --- Global Styles & Vibrant Theme --- */
+        :root {
+            --primary-color: #0077cc; /* Deep Sky Blue */
+            --secondary-color: #ffc107; /* Amber Yellow */
+            --accent-color: #28a745; /* Vibrant Green */
+            --danger-color: #dc3545; /* Red */
+            --info-color: #17a2b8; /* Teal Info */
+            --warning-color: #fd7e14; /* Orange */
+            --bg-color: #f4f7f9; /* Lighter Grey Background */
+            --card-bg: #ffffff;
+            --text-color: #343a40;
+            --text-light: #6c757d;
+            --border-color: #dee2e6;
+            --shadow-color: rgba(0, 0, 0, 0.08);
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
+
+        body { font-family: var(--font-family); background-color: var(--bg-color); margin: 0; padding: 0; color: var(--text-color); line-height: 1.6; overflow-x: hidden; }
+        .dashboard-container { max-width: 1700px; margin: 25px auto; padding: 25px; background-color: var(--card-bg); border-radius: 12px; box-shadow: 0 6px 18px var(--shadow-color); }
+        h1, h2, h3 { text-align: center; margin-bottom: 25px; }
+        h1 { font-size: 2.4em; color: var(--primary-color); font-weight: 600; letter-spacing: -1px; }
+        h2 { font-size: 1.8em; color: var(--primary-color); margin-top: 40px; padding-bottom: 8px; border-bottom: 2px solid var(--primary-color); font-weight: 500; }
+        h3 { font-size: 1.3em; color: var(--text-color); margin-top: 0; margin-bottom: 20px; font-weight: 500; }
+
+        /* --- Filters --- */
+        .filters { display: flex; flex-wrap: wrap; justify-content: center; gap: 25px; margin-bottom: 35px; padding: 20px; background-color: #eef2f5; border-radius: 8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); }
+        .filter-group { display: flex; align-items: center; gap: 8px; }
+        .filter-group label { font-weight: 600; color: var(--primary-color); white-space: nowrap; }
+        .filters select { padding: 9px 14px; border: 1px solid var(--border-color); border-radius: 5px; background-color: var(--card-bg); font-size: 1em; min-width: 170px; cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+        .filters select:hover, .filters select:focus { border-color: var(--primary-color); box-shadow: 0 0 0 2px rgba(0, 119, 204, 0.2); outline: none; }
+
+        /* --- KPI Section --- */
+        .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .kpi-box { background-color: var(--card-bg); padding: 20px 15px; border-radius: 8px; box-shadow: 0 3px 8px var(--shadow-color); border-left: 6px solid var(--primary-color); transition: transform 0.25s ease, box-shadow 0.25s ease; display: flex; flex-direction: column; justify-content: space-between; min-height: 110px; animation: fadeIn 0.5s ease forwards; text-align: center; }
+        .kpi-box:hover { transform: translateY(-4px); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.12); }
+        .kpi-box .value { font-size: 1.8em; font-weight: 600; color: var(--primary-color); line-height: 1.2; margin-bottom: 5px; word-wrap: break-word; transition: color 0.3s ease; }
+        .kpi-box .label { font-size: 0.95em; color: var(--text-light); font-weight: 500; margin-bottom: 8px; }
+        .kpi-change { font-size: 0.9em; font-weight: 600; padding: 2px 6px; border-radius: 4px; opacity: 0; transition: opacity 0.5s ease; display: inline-block; min-width: 50px; /* Ensure space */ }
+        .kpi-change.visible { opacity: 1; }
+        .kpi-change.positive { color: var(--accent-color); background-color: rgba(40, 167, 69, 0.1); }
+        .kpi-change.negative { color: var(--danger-color); background-color: rgba(220, 53, 69, 0.1); }
+        .kpi-change.neutral { color: var(--text-light); background-color: rgba(108, 117, 125, 0.1); }
+        /* Specific KPI colors */
+         .kpi-box.revenue { border-left-color: var(--accent-color); } .kpi-box.revenue .value { color: var(--accent-color); }
+         .kpi-box.roas { border-left-color: var(--secondary-color); } .kpi-box.roas .value { color: var(--secondary-color); }
+         .kpi-box.cac { border-left-color: var(--danger-color); } .kpi-box.cac .value { color: var(--danger-color); }
+         .kpi-box.leads { border-left-color: var(--info-color); } .kpi-box.leads .value { color: var(--info-color); }
+         .kpi-box.bounce { border-left-color: var(--warning-color); } .kpi-box.bounce .value { color: var(--warning-color); }
+
+        /* --- Main Layout Grid --- */
+        .main-layout { display: grid; grid-template-columns: repeat(12, 1fr); gap: 25px; align-items: start; }
+
+        /* --- Chart Box Styles --- */
+        .chart-box { background-color: var(--card-bg); padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px var(--shadow-color); display: flex; flex-direction: column; grid-column: span 6; /* Default span */ min-height: 380px; animation: fadeIn 0.6s ease forwards; }
+        .chart-box.span-3 { grid-column: span 3; } .chart-box.span-4 { grid-column: span 4; } .chart-box.span-5 { grid-column: span 5; }
+        .chart-box.span-7 { grid-column: span 7; } .chart-box.span-8 { grid-column: span 8; } .chart-box.span-12 { grid-column: span 12; }
+        .chart-box h3 { text-align: left; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-left: 0; margin-right: 0;} /* Adjusted H3 */
+        canvas { max-width: 100%; height: auto; flex-grow: 1; max-height: 450px; }
+
+        /* --- Detailed Sales Funnel --- */
+        .funnel-container { display: flex; flex-direction: column; align-items: center; padding: 10px 0; height: 100%; justify-content: center;} /* Centered content */
+        .funnel-stage { color: white; margin-bottom: 5px; text-align: center; position: relative; transition: width 0.4s ease-in-out, background-color 0.3s ease; min-height: 40px; display: flex; flex-wrap: wrap; /* Allow wrapping inside */ align-items: center; justify-content: center; border-radius: 3px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 5px 10px; }
+        .funnel-stage .label { font-weight: 600; font-size: 0.9em; margin-right: 8px; white-space: nowrap; }
+        .funnel-stage .value { font-size: 1em; font-weight: bold; }
+        .funnel-stage.visitors { background-color: var(--primary-color); width: 100%; }
+        .funnel-stage.leads { background-color: var(--info-color); width: 10%; /* Default small width */ }
+        .funnel-stage.bookings { background-color: var(--accent-color); width: 5%; /* Default small width */ }
+        .funnel-conversion { text-align: center; margin: 3px 0 10px 0; color: var(--text-light); font-style: italic; font-size: 0.85em; position: relative; line-height: 1.3; }
+        .funnel-conversion::before { content: ''; display: block; width: 1px; height: 12px; background-color: var(--border-color); margin: 3px auto; }
+        .funnel-conversion span { font-weight: bold; color: var(--text-color); }
+
+        /* --- Top Campaigns Table --- */
+        .table-container { overflow-x: auto; grid-column: span 12; background-color: var(--card-bg); padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px var(--shadow-color); animation: fadeIn 0.7s ease forwards; }
+        .campaign-table { width: 100%; border-collapse: collapse; }
+        .campaign-table th, .campaign-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+        .campaign-table th { background-color: #f8f9fa; font-weight: 600; cursor: pointer; position: relative; }
+        .campaign-table th:hover { background-color: #e9ecef; }
+        /* Basic Sort Indicator (using border) */
+         .campaign-table th.sort-header::after { content: ''; display: inline-block; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; margin-left: 5px; opacity: 0.5; vertical-align: middle; }
+         .campaign-table th.sort-header[aria-sort="ascending"]::after { border-bottom: 5px solid var(--primary-color); opacity: 1; }
+         .campaign-table th.sort-header[aria-sort="descending"]::after { border-top: 5px solid var(--primary-color); opacity: 1;}
+        .campaign-table td { font-size: 0.95em; }
+        .campaign-table tr:last-child td { border-bottom: none; }
+        .campaign-table tr:hover { background-color: #f1f5f8; }
+        .campaign-table .number { text-align: right; font-variant-numeric: tabular-nums; } /* Align numbers right */
+        .no-campaign-data { text-align: center; color: var(--text-light); padding: 20px; }
+
+        /* --- Simulation Box --- */
+        .simulation-box { grid-column: span 12; background-color: #eef2f5; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px var(--shadow-color); animation: fadeIn 0.6s ease forwards; }
+        .simulation-box h3 { text-align: center; border-bottom: none; margin-bottom: 15px; color: var(--primary-color); }
+        .slider-container { display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 20px; margin-bottom: 20px; }
+        .slider-group { flex: 1; min-width: 250px; text-align: center; }
+        .slider-group label { display: block; margin-bottom: 8px; font-weight: 600; }
+        .slider-group input[type="range"] { width: 80%; cursor: pointer; }
+        .slider-group .value-display { font-weight: bold; color: var(--primary-color); margin-top: 5px; }
+        .simulation-results { display: flex; flex-wrap: wrap; /* Allow wrapping */ justify-content: space-around; margin-top: 20px; padding-top: 20px; border-top: 1px dashed var(--border-color); text-align: center; gap: 15px; /* Add gap */ }
+        .sim-result-item { flex: 1; min-width: 150px; /* Min width for wrapping */}
+        .sim-result-item .label { font-size: 0.9em; color: var(--text-light); margin-bottom: 3px; }
+        .sim-result-item .value { font-size: 1.4em; font-weight: 600; color: var(--accent-color); }
+        .sim-result-item .value.roas { color: var(--secondary-color); }
+        .sim-result-item .value.cac { color: var(--danger-color); } /* Specific color for CAC */
+
+        /* Responsive Adjustments */
+        @media (max-width: 1400px) { .chart-box.span-3 { grid-column: span 4; } .chart-box.span-5 { grid-column: span 6; } .chart-box.span-7 { grid-column: span 6; } }
+        @media (max-width: 1200px) { .main-layout > *, .table-container { grid-column: span 6 !important; } .main-layout .span-12, .simulation-box { grid-column: span 12 !important; } .kpi-container { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); } }
+        @media (max-width: 768px) { .main-layout > *, .table-container, .simulation-box { grid-column: span 12 !important; } h1 { font-size: 2em; } h2 { font-size: 1.6em; } .kpi-container { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px;} .kpi-box .value { font-size: 1.6em; } .chart-box { min-height: 320px; padding: 20px; } .filters { flex-direction: column; align-items: stretch; gap: 15px;} .filters .filter-group { justify-content: space-between; } .slider-container { flex-direction: column; align-items: stretch; } .slider-group input[type="range"] { width: 100%; } .simulation-results { flex-direction: column; gap: 15px; align-items: center; } }
+
+    </style>
+</head>
+<body>
+
+    <!-- HTML Structure - Ensure all IDs match JS references -->
+    <div class="dashboard-container">
+        <h1>✈️ TravelGrowth Pro+ Dashboard</h1>
+
+        <!-- Filters -->
+        <div class="filters">
+            <div class="filter-group">
+                <label for="dateRange">Date Range:</label>
+                <select id="dateRange">
+                    <option value="last7days" selected>Last 7 Days</option>
+                    <option value="last30days">Last 30 Days</option>
+                    <option value="last90days">Last 90 Days</option>
+                    <option value="all">All Time (90d)</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="channelFilter">Marketing Channel:</label>
+                <select id="channelFilter">
+                    <option value="all" selected>All Channels</option>
+                    <!-- Options populated by JS -->
+                </select>
+            </div>
+        </div>
+
+        <!-- KPIs -->
+        <h2>Key Performance Indicators</h2>
+        <div class="kpi-container">
+            <div class="kpi-box visitors"> <div class="label">Total Visitors</div> <div id="kpi-visitors" class="value">0</div> <div id="kpi-visitors-change" class="kpi-change">--</div> </div>
+            <div class="kpi-box leads"> <div class="label">Leads Generated</div> <div id="kpi-leads" class="value">0</div> <div id="kpi-leads-change" class="kpi-change">--</div> </div>
+            <div class="kpi-box leadRate"> <div class="label">Lead Gen Rate</div> <div id="kpi-leadRate" class="value">0%</div> <div id="kpi-leadRate-change" class="kpi-change">--</div> </div>
+            <div class="kpi-box bookings"> <div class="label">Total Bookings</div> <div id="kpi-bookings" class="value">0</div> <div id="kpi-bookings-change" class="kpi-change">--</div> </div>
+            <div class="kpi-box convRate"> <div class="label">Booking Conv. Rate</div> <div id="kpi-convRate" class="value">0%</div> <div id="kpi-convRate-change" class="kpi-change">--</div> </div>
+            <div class="kpi-box bounce"> <div class="label">Bounce Rate</div> <div id="kpi-bounceRate" class="value">0%</div> <div id="kpi-bounceRate-change" class="kpi-change">--</div> </div>
+            <div class="kpi-box revenue"> <div class="label">Total Revenue</div> <div id="kpi-revenue" class="value">$0</div> <div id="kpi-revenue-change" class="kpi-change">--</div> </div>
+            <div class="kpi-box cac"> <div class="label">Avg. CAC</div> <div id="kpi-cac" class="value">$0</div> <div id="kpi-cac-change" class="kpi-change">--</div> </div>
+            <div class="kpi-box roas"> <div class="label">ROAS (Paid)</div> <div id="kpi-roas" class="value">0.0x</div> <div id="kpi-roas-change" class="kpi-change">--</div> </div>
+        </div>
+
+        <!-- Main Layout -->
+        <div class="main-layout">
+            <!-- Row 1: Funnel & Core Charts -->
+            <div class="chart-box span-4">
+                <h3>Detailed Sales Funnel</h3>
+                <div class="funnel-container" id="funnel-component">
+                    <div class="funnel-stage visitors" id="funnel-visitors"> <span class="label">Visitors:</span> <span class="value">0</span> </div>
+                    <div class="funnel-conversion" id="conv-visitors-leads"> (<span class="rate">0%</span> conversion) </div>
+                    <div class="funnel-stage leads" id="funnel-leads"> <span class="label">Leads:</span> <span class="value">0</span> </div>
+                    <div class="funnel-conversion" id="conv-leads-bookings"> (<span class="rate">0%</span> conversion) </div>
+                    <div class="funnel-stage bookings" id="funnel-bookings"> <span class="label">Bookings:</span> <span class="value">0</span> </div>
+                    <div class="funnel-conversion" id="conv-overall" style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 8px;"> Overall Visitor-to-Booking: <span class="rate">0%</span> </div>
+                </div>
+            </div>
+             <div class="chart-box span-4">
+                 <h3>Lead Source Distribution</h3>
+                 <canvas id="leadSourceChart"></canvas>
+             </div>
+             <div class="chart-box span-4">
+                 <h3>Bookings by Channel</h3>
+                 <canvas id="channelPerformanceChart"></canvas>
+             </div>
+
+            <!-- Row 2: Trend Chart -->
+             <div class="chart-box span-12">
+                 <h3>Lead Generation Trend</h3>
+                 <canvas id="leadTrendChart"></canvas>
+             </div>
+
+            <!-- Row 3: Budget Simulation -->
+             <div class="simulation-box">
+                <h2>Interactive Budget Simulator (Paid Channels)</h2>
+                 <h3>Adjust Budget Allocation (Total Spend Remains Constant)</h3>
+                 <div class="slider-container">
+                     <div class="slider-group"> <label for="paidSearchSlider">Paid Search Allocation</label> <input type="range" id="paidSearchSlider" min="0" max="100" value="50" step="1"> <div class="value-display"><span id="paidSearchPercent">50</span>%</div> </div>
+                     <div class="slider-group"> <label for="socialPaidSlider">Social Media (Paid) Allocation</label> <input type="range" id="socialPaidSlider" min="0" max="100" value="50" step="1"> <div class="value-display"><span id="socialPaidPercent">50</span>%</div> </div>
+                 </div>
+                 <div class="simulation-results">
+                     <div class="sim-result-item"> <div class="label">Est. Total Bookings</div> <div id="sim-bookings" class="value">0</div> </div>
+                     <div class="sim-result-item"> <div class="label">Est. Total Revenue</div> <div id="sim-revenue" class="value">$0</div> </div>
+                     <div class="sim-result-item"> <div class="label">Est. Paid ROAS</div> <div id="sim-roas" class="value roas">0.0x</div> </div>
+                     <div class="sim-result-item"> <div class="label">Est. Paid CAC</div> <div id="sim-cac" class="value cac">$0</div> </div>
+                 </div>
+             </div>
+
+            <!-- Row 4: Top Campaigns Table -->
+             <div class="table-container">
+                <h3>Top Performing Campaigns</h3>
+                <table class="campaign-table" id="campaignsTable"> <!-- Removed 'sortable' class temporarily if library causes issues -->
+                     <thead>
+                         <tr>
+                             <!-- Added data-sort attributes for Tablesort -->
+                             <th data-sort-method='default'>Campaign</th>
+                             <th data-sort-method='number'>Visitors</th>
+                             <th data-sort-method='number'>Leads</th>
+                             <th data-sort-method='number'>Bookings</th>
+                             <th data-sort-method='number'>Spend ($)</th>
+                             <th data-sort-method='number'>Revenue ($)</th>
+                             <th data-sort-method='number'>ROAS</th>
+                             <th data-sort-method='number'>CAC ($)</th>
+                         </tr>
+                     </thead>
+                     <tbody id="campaignsTableBody">
+                         <tr><td colspan="8" class="no-campaign-data">Loading campaign data...</td></tr>
+                     </tbody>
+                 </table>
+             </div>
+
+            <!-- Row 5: Radar Chart -->
+             <div class="chart-box span-12">
+                 <h3>Channel Comparison Radar (Normalized 0-1 Scale)</h3>
+                 <canvas id="radarChart"></canvas>
+             </div>
+        </div> <!-- End main-layout -->
+    </div> <!-- End dashboard-container -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM Loaded - Initializing Dashboard Script vFinal");
+
+            // --- Dummy Data Generation ---
+            const dummyData = [];
+            const channels = ["Paid Search", "Organic Search", "Social Media (Paid)", "Email Marketing", "Referral", "Direct"];
+            const paidCampaigns = {
+                 "Paid Search": ["Winter_Deals_EU", "Ski_Specials_NA", "Generic_Brand_Search", "Summer_Flights_PPC"],
+                 "Social Media (Paid)": ["Beach_Getaway_Insta", "City_Break_FB", "Travel_Influencer_Promo", "Last_Minute_Deals_Social"]
+            };
+             const today = new Date();
+             const dataDays = 90;
+             const globalStartDate = new Date(); // Store the earliest date for 'all' range
+             globalStartDate.setDate(today.getDate() - dataDays);
+             globalStartDate.setHours(0,0,0,0);
+
+            for (let i = 0; i <= dataDays; i++) {
+                const currentDate = new Date(globalStartDate);
+                currentDate.setDate(globalStartDate.getDate() + i);
+                const dateStr = currentDate.toISOString().split('T')[0];
+
+                channels.forEach(channel => {
+                    let visitors = 0, leads = 0, bookings = 0, spend = 0, revenue = 0, bounces = 0;
+                    let campaign = "(N/A)";
+                    // Refined simulation logic with minimums
+                    if (channel === "Paid Search") { visitors = Math.max(50, 350 + Math.floor(Math.random() * 300 - 150)); spend = Math.max(10, Math.floor(visitors * 0.18 + Math.random() * 30)); campaign = paidCampaigns[channel][Math.floor(Math.random() * paidCampaigns[channel].length)]; }
+                    else if (channel === "Organic Search") { visitors = Math.max(50, 450 + Math.floor(Math.random() * 300 - 150)); }
+                    else if (channel === "Social Media (Paid)") { visitors = Math.max(50, 275 + Math.floor(Math.random() * 250 - 125)); spend = Math.max(10, Math.floor(visitors * 0.13 + Math.random() * 25)); campaign = paidCampaigns[channel][Math.floor(Math.random() * paidCampaigns[channel].length)]; }
+                    else if (channel === "Email Marketing") { visitors = Math.max(20, 125 + Math.floor(Math.random() * 150 - 75)); spend = Math.max(1, Math.floor(visitors * 0.01)); }
+                    else if (channel === "Referral") { visitors = Math.max(10, 60 + Math.floor(Math.random() * 80 - 40)); }
+                    else { visitors = Math.max(30, 200 + Math.floor(Math.random() * 200 - 100)); }
+
+                    let leadRate = Math.max(0.01, 0.04 + (Math.random() * 0.03));
+                    let bookingRateFromLead = Math.max(0.05, 0.12 + (Math.random() * 0.08));
+                    let bounceRate = Math.max(0.1, Math.min(0.9, 0.45 + (Math.random() * 0.2 - 0.1)));
+                    if (channel === "Email Marketing") { leadRate = Math.max(0.05, 0.12 + (Math.random()*0.06)); bookingRateFromLead = Math.max(0.1, 0.20+(Math.random()*0.1)); bounceRate = Math.max(0.05, Math.min(0.6, 0.25+(Math.random()*0.1))); }
+                    if (channel === "Organic Search") { bounceRate = Math.max(0.1, Math.min(0.8, 0.40 + (Math.random()*0.15))); }
+                    if (channel === "Social Media (Paid)") { leadRate = Math.max(0.005, 0.03 + (Math.random()*0.02)); bounceRate = Math.max(0.2, Math.min(0.95, 0.55 + (Math.random()*0.15))); }
+                    if (channel === "Referral") { bookingRateFromLead = Math.max(0.08, 0.16 + (Math.random()*0.1)); bounceRate = Math.max(0.05, Math.min(0.7, 0.30 + (Math.random()*0.1))); }
+
+                    leads = Math.floor(visitors * leadRate);
+                    bookings = Math.floor(leads * bookingRateFromLead);
+                    bounces = Math.min(visitors - leads, Math.max(0, Math.floor(visitors * bounceRate))); // Ensure bounces <= non-leads
+                    revenue = parseFloat((bookings * (800 + Math.random() * 500)).toFixed(2)); // Slightly higher ABV avg
+
+                    dummyData.push({ Date: dateStr, Channel: channel, Campaign: campaign, Visitors: visitors, Bounces: bounces, Leads: leads, Bookings: bookings, Spend: parseFloat(spend.toFixed(2)), Revenue: revenue });
+                });
+            }
+            console.log(`Generated ${dummyData.length} dummy data points.`);
+
+
+            // --- Chart Instances & Global State ---
+            let chartInstances = {}; // Store all chart instances here
+            let currentMetrics = {}; let previousMetrics = {};
+            let totalDaysInPeriod = 0;
+            let campaignTableSortInstance;
+
+            // --- DOM References ---
+            const dateRangeSelect = document.getElementById('dateRange');
+            const channelFilterSelect = document.getElementById('channelFilter');
+            const kpiElements = {
+                visitors: { value: document.getElementById('kpi-visitors'), change: document.getElementById('kpi-visitors-change') },
+                leads: { value: document.getElementById('kpi-leads'), change: document.getElementById('kpi-leads-change') },
+                leadRate: { value: document.getElementById('kpi-leadRate'), change: document.getElementById('kpi-leadRate-change') },
+                bookings: { value: document.getElementById('kpi-bookings'), change: document.getElementById('kpi-bookings-change') },
+                convRate: { value: document.getElementById('kpi-convRate'), change: document.getElementById('kpi-convRate-change') },
+                bounceRate: { value: document.getElementById('kpi-bounceRate'), change: document.getElementById('kpi-bounceRate-change') },
+                revenue: { value: document.getElementById('kpi-revenue'), change: document.getElementById('kpi-revenue-change') },
+                cac: { value: document.getElementById('kpi-cac'), change: document.getElementById('kpi-cac-change') },
+                roas: { value: document.getElementById('kpi-roas'), change: document.getElementById('kpi-roas-change') },
+            };
+            const canvasElements = {
+                 leadSourceChart: document.getElementById('leadSourceChart'),
+                 channelPerformanceChart: document.getElementById('channelPerformanceChart'),
+                 leadTrendChart: document.getElementById('leadTrendChart'),
+                 radarChart: document.getElementById('radarChart')
+            };
+            const funnelElements = {
+                visitorsValue: document.getElementById('funnel-visitors')?.querySelector('.value'),
+                leadsValue: document.getElementById('funnel-leads')?.querySelector('.value'),
+                bookingsValue: document.getElementById('funnel-bookings')?.querySelector('.value'),
+                leadsStage: document.getElementById('funnel-leads'),
+                bookingsStage: document.getElementById('funnel-bookings'),
+                convVtoLRate: document.getElementById('conv-visitors-leads')?.querySelector('.rate'),
+                convLtoBRate: document.getElementById('conv-leads-bookings')?.querySelector('.rate'),
+                convOverallRate: document.getElementById('conv-overall')?.querySelector('.rate')
+            };
+            const campaignTableElements = {
+                body: document.getElementById('campaignsTableBody'),
+                table: document.getElementById('campaignsTable')
+            };
+            const simulationElements = {
+                 paidSearchSlider: document.getElementById('paidSearchSlider'),
+                 socialPaidSlider: document.getElementById('socialPaidSlider'),
+                 paidSearchPercent: document.getElementById('paidSearchPercent'),
+                 socialPaidPercent: document.getElementById('socialPaidPercent'),
+                 simBookings: document.getElementById('sim-bookings'),
+                 simRevenue: document.getElementById('sim-revenue'),
+                 simRoas: document.getElementById('sim-roas'),
+                 simCac: document.getElementById('sim-cac')
+            };
+
+            // --- Essential Element Check ---
+            const essentialIds = ['dateRange', 'channelFilter', 'campaignsTableBody', 'funnel-visitors', 'kpi-visitors', 'leadSourceChart'];
+            if (essentialIds.some(id => !document.getElementById(id))) {
+                 console.error("CRITICAL ERROR: One or more essential DOM elements not found during initialization. Aborting script.");
+                 alert("Dashboard Error: Essential elements missing. Check HTML structure and IDs.");
+                 return; // Stop execution
+             } else { console.log("Essential DOM elements verified."); }
+
+            // ===============================================
+            // --- HELPER & CORE LOGIC FUNCTIONS -----------
+            // ===============================================
+
+            // --- Formatters ---
+            const formatCurrency = (value, digits = 0) => (isNaN(value) || value === null) ? '$0' : value.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: digits, maximumFractionDigits: digits });
+            const formatPercent = (value, digits = 1) => (isNaN(value) || !isFinite(value) || value === null) ? '0.0%' : `${(value * 100).toFixed(digits)}%`;
+            const formatNumber = (value) => (isNaN(value) || value === null) ? '0' : value.toLocaleString('en-US');
+            const formatROAS = (value) => (isNaN(value) || !isFinite(value) || value === null) ? '0.0x' : `${value.toFixed(1)}x`;
+
+            // --- Period Change Calculation ---
+            function calculateChange(current, previous) {
+                 if (previous == null || current == null || isNaN(previous) || isNaN(current) || previous === 0) return { value: null, class: 'neutral', text: '--' };
+                 const change = (current - previous) / previous;
+                 if (!isFinite(change)) return { value: null, class: 'neutral', text: '--' };
+                 const percentage = change * 100;
+                 let className = 'neutral', sign = '±';
+                 if (percentage > 0.1) { className = 'positive'; sign = '+'; }
+                 else if (percentage < -0.1) { className = 'negative'; sign = ''; } // Negative sign is included
+                 return { value: change, class: className, text: `${sign}${Math.abs(percentage).toFixed(1)}%` };
+            }
+            function invertChangeClass(changeData) {
+                 if (changeData.class === 'positive') changeData.class = 'negative';
+                 else if (changeData.class === 'negative') changeData.class = 'positive';
+                 return changeData;
+             }
+
+            // --- Data Filtering ---
+            function getPeriodDates(dateRangeValue) {
+                const now = new Date(); now.setHours(0, 0, 0, 0);
+                let currentStartDate, currentEndDate = new Date(now);
+                let previousStartDate, previousEndDate;
+                let days = 0;
+                switch (dateRangeValue) {
+                    case 'last7days': days = 7; break;
+                    case 'last30days': days = 30; break;
+                    case 'last90days': days = 90; break;
+                    case 'all': days = dataDays + 1; break;
+                    default: days = 7;
+                }
+                totalDaysInPeriod = days;
+                currentStartDate = new Date(now);
+                currentStartDate.setDate(now.getDate() - days + 1);
+                currentStartDate.setHours(0, 0, 0, 0);
+                if (dateRangeValue === 'all') currentStartDate = new Date(globalStartDate); // Use actual start for 'all'
+
+                previousEndDate = new Date(currentStartDate); previousEndDate.setDate(previousEndDate.getDate() - 1); previousEndDate.setHours(23, 59, 59, 999);
+                previousStartDate = new Date(previousEndDate); previousStartDate.setDate(previousEndDate.getDate() - days + 1); previousStartDate.setHours(0, 0, 0, 0);
+                return { currentStartDate, currentEndDate, previousStartDate, previousEndDate };
+            }
+            function filterDataByDateRange(data, startDate, endDate) {
+                 if (!(startDate instanceof Date) || !(endDate instanceof Date) || isNaN(startDate) || isNaN(endDate)) return [];
+                 const startStr = startDate.toISOString().split('T')[0];
+                 const end = new Date(endDate); end.setHours(23, 59, 59, 999); const endStr = end.toISOString().split('T')[0];
+                 return data.filter(item => item?.Date >= startStr && item?.Date <= endStr);
+            }
+            function filterAllData(data, dateRangeValue, channel) {
+                try {
+                    const { currentStartDate, currentEndDate, previousStartDate, previousEndDate } = getPeriodDates(dateRangeValue);
+                    const currentPeriodData = filterDataByDateRange(data, currentStartDate, currentEndDate);
+                    const previousPeriodData = filterDataByDateRange(data, previousStartDate, previousEndDate);
+                    const filterByChannel = (d) => (channel === 'all' || d.Channel === channel);
+                    return { currentData: currentPeriodData.filter(filterByChannel), previousData: previousPeriodData.filter(filterByChannel), currentDataAllChannels: currentPeriodData };
+                } catch (error) { console.error("Error inside filterAllData:", error); return { currentData: [], previousData: [], currentDataAllChannels: [] }; }
+            }
+
+            // --- Metric Calculation ---
+             const ZERO_METRICS = { visitors: 0, bounces: 0, leads: 0, bookings: 0, revenue: 0, totalSpend: 0, paidSpend: 0, paidRevenue: 0, bounceRate: 0, leadRate: 0, leadBookingRate: 0, bookingConvRate: 0, cac: 0, roas: 0, channelData: {}, campaignData: {} };
+             function calculateMetrics(periodData) {
+                 if (!periodData || periodData.length === 0) return JSON.parse(JSON.stringify(ZERO_METRICS));
+                 const totals = periodData.reduce((acc, item) => {
+                    const v = item.Visitors || 0; const bo = item.Bounces || 0; const l = item.Leads || 0; const b = item.Bookings || 0; const s = item.Spend || 0; const r = item.Revenue || 0; const chan = item.Channel; const camp = item.Campaign || "(N/A)";
+                    acc.visitors += v; acc.bounces += bo; acc.leads += l; acc.bookings += b; acc.spend += s; acc.revenue += r;
+                    if (chan === "Paid Search" || chan === "Social Media (Paid)") { acc.paidSpend += s; acc.paidRevenue += r; }
+                    if (!acc.channelData[chan]) acc.channelData[chan] = { visitors: 0, bounces: 0, leads: 0, bookings: 0, spend: 0, revenue: 0, count: 0 };
+                    Object.assign(acc.channelData[chan], { visitors: acc.channelData[chan].visitors + v, bounces: acc.channelData[chan].bounces + bo, leads: acc.channelData[chan].leads + l, bookings: acc.channelData[chan].bookings + b, spend: acc.channelData[chan].spend + s, revenue: acc.channelData[chan].revenue + r, count: acc.channelData[chan].count + 1 });
+                    if (camp !== "(N/A)") {
+                        if (!acc.campaignData[camp]) acc.campaignData[camp] = { channel: chan, visitors: 0, leads: 0, bookings: 0, spend: 0, revenue: 0 };
+                        Object.assign(acc.campaignData[camp], { visitors: acc.campaignData[camp].visitors + v, leads: acc.campaignData[camp].leads + l, bookings: acc.campaignData[camp].bookings + b, spend: acc.campaignData[camp].spend + s, revenue: acc.campaignData[camp].revenue + r });
+                    }
+                    return acc;
+                }, { visitors: 0, bounces: 0, leads: 0, bookings: 0, spend: 0, revenue: 0, paidSpend: 0, paidRevenue: 0, channelData: {}, campaignData: {} });
+
+                const v = totals.visitors, l = totals.leads, b = totals.bookings, sT = totals.spend, sP = totals.paidSpend, rP = totals.paidRevenue, bo = totals.bounces;
+                return {
+                    visitors: v, bounces: bo, leads: l, bookings: b, revenue: totals.revenue, totalSpend: sT, paidSpend: sP, paidRevenue: rP,
+                    bounceRate: v > 0 ? (bo / v) : 0, leadRate: v > 0 ? (l / v) : 0, leadBookingRate: l > 0 ? (b / l) : 0, bookingConvRate: v > 0 ? (b / v) : 0,
+                    cac: b > 0 ? (sT / b) : 0, roas: sP > 0 ? (rP / sP) : 0,
+                    channelData: totals.channelData, campaignData: totals.campaignData
+                };
+            }
+
+            // ===============================================
+            // --- UI UPDATE FUNCTIONS -----------------------
+            // ===============================================
+
+            function updateKPIs(current, previous) {
+                 const updateKpiBox = (key, formatter, invert = false) => {
+                     const el = kpiElements[key]; if (!el?.value || !el?.change) return;
+                     const currentVal = current ? current[key] : null; const prevVal = previous ? previous[key] : null;
+                     const changeData = calculateChange(currentVal, prevVal); const finalChange = invert ? invertChangeClass({...changeData}) : changeData;
+                     el.value.textContent = formatter(currentVal); el.change.textContent = finalChange.text; el.change.className = `kpi-change ${finalChange.class}`; void el.change.offsetWidth; el.change.classList.add('visible');
+                 };
+                 const currentSafe = current || ZERO_METRICS; const previousSafe = previous || ZERO_METRICS;
+                 updateKpiBox('visitors', formatNumber); updateKpiBox('leads', formatNumber); updateKpiBox('leadRate', formatPercent); updateKpiBox('bookings', formatNumber); updateKpiBox('convRate', formatPercent); updateKpiBox('bounceRate', formatPercent, true); updateKpiBox('revenue', formatCurrency); updateKpiBox('cac', formatCurrency, true); updateKpiBox('roas', formatROAS);
+            }
+
+            function updateFunnelComponent(metrics) {
+                 if (!metrics || Object.values(funnelElements).some(el => !el)) { console.warn("Funnel update skipped: Missing metrics or elements."); return; }
+                 const { visitors, leads, bookings, leadRate, leadBookingRate, bookingConvRate } = metrics;
+                 funnelElements.visitorsValue.textContent = formatNumber(visitors); funnelElements.leadsValue.textContent = formatNumber(leads); funnelElements.bookingsValue.textContent = formatNumber(bookings);
+                 funnelElements.convVtoLRate.textContent = formatPercent(leadRate); funnelElements.convLtoBRate.textContent = formatPercent(leadBookingRate); funnelElements.convOverallRate.textContent = formatPercent(bookingConvRate);
+                 const leadWidth = visitors > 0 ? Math.max(10, Math.min(100, (leads / visitors) * 100)) : 10;
+                 const bookingWidth = leads > 0 ? Math.max(5, Math.min(leadWidth, (bookings / leads) * leadWidth)) : 5;
+                 funnelElements.leadsStage.style.width = `${leadWidth.toFixed(1)}%`; funnelElements.bookingsStage.style.width = `${bookingWidth.toFixed(1)}%`;
+            }
+
+            function updateCampaignTable(campaignData) {
+                 const { body: tableBody, table } = campaignTableElements; if (!tableBody || !table) return;
+                 tableBody.innerHTML = ''; const campaigns = campaignData ? Object.keys(campaignData) : [];
+                 if (campaigns.length === 0) { tableBody.innerHTML = '<tr><td colspan="8" class="no-campaign-data">No campaign data for this selection.</td></tr>'; if (campaignTableSortInstance) { try { campaignTableSortInstance.destroy(); } catch(e){} campaignTableSortInstance = null; } return; }
+                 campaigns.forEach(name => {
+                    const data = campaignData[name]; if (!data) return; const s = data.spend||0, r = data.revenue||0, b = data.bookings||0; const roas = s > 0 ? r/s : 0; const cac = b > 0 ? s/b : 0;
+                    const row = document.createElement('tr');
+                    row.innerHTML = `<td>${name} <em style="font-size:0.8em; color:var(--text-light)">(${data.channel || 'N/A'})</em></td> <td class="number">${formatNumber(data.visitors||0)}</td> <td class="number">${formatNumber(data.leads||0)}</td> <td class="number">${formatNumber(b)}</td> <td class="number">${formatCurrency(s)}</td> <td class="number">${formatCurrency(r)}</td> <td class="number">${formatROAS(roas)}</td> <td class="number">${formatCurrency(cac)}</td>`;
+                    tableBody.appendChild(row);
+                 });
+                 try { if (table && !campaignTableSortInstance) { campaignTableSortInstance = new Tablesort(table); } else if (campaignTableSortInstance) { campaignTableSortInstance.refresh(); } } catch (e) { console.error("Tablesort Error:", e); campaignTableSortInstance = null; }
+             }
+
+            function updateCharts(currentData, currentMetrics, selectedChannel, currentDataAllChannels) {
+                 // Destroy previous charts
+                 Object.keys(chartInstances).forEach(key => { if (chartInstances[key]) { try { chartInstances[key].destroy(); } catch(e){} chartInstances[key] = null; } });
+                 if (!currentMetrics?.channelData) { console.warn("Cannot update charts, metrics missing."); return; }
+
+                 const chartColors = { blue: '#0077cc', teal: '#17a2b8', green: '#28a745', yellow: '#ffc107', orange: '#fd7e14', red: '#dc3545', purple: '#6f42c1' };
+                 const colorArray = Object.values(chartColors);
+                 const colorArrayTransparent = (alpha = 0.7) => colorArray.map(c => `${c}${Math.floor(alpha * 255).toString(16).padStart(2, '0')}`); // Hex with alpha
+
+                 try {
+                     // --- Lead Source (Doughnut) ---
+                     const leadSourceCtx = canvasElements.leadSourceChart?.getContext('2d');
+                     if (leadSourceCtx) {
+                         const leadData = channels.map(ch => currentMetrics.channelData[ch]?.leads || 0);
+                         chartInstances.leadSourceChart = new Chart(leadSourceCtx, { type: 'doughnut', data: { labels: channels, datasets: [{ data: leadData, backgroundColor: colorArrayTransparent(), borderColor: '#fff', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } });
+                     }
+
+                     // --- Bookings by Channel (Bar) ---
+                     const channelPerfCtx = canvasElements.channelPerformanceChart?.getContext('2d');
+                     if (channelPerfCtx) {
+                         const channelPerfMetrics = calculateMetrics(currentDataAllChannels); // Needs recalc for all channels context
+                         const bookingData = channels.map(ch => channelPerfMetrics.channelData[ch]?.bookings || 0);
+                         chartInstances.channelPerformanceChart = new Chart(channelPerfCtx, { type: 'bar', data: { labels: channels, datasets: [{ label: 'Bookings', data: bookingData, backgroundColor: channels.map((ch, i) => (selectedChannel !== 'all' && ch !== selectedChannel) ? colorArrayTransparent(0.2)[i % colorArray.length] : colorArrayTransparent()[i % colorArray.length]), borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 0 } } } } });
+                     }
+
+                     // --- Lead Trend (Line) ---
+                     const leadTrendCtx = canvasElements.leadTrendChart?.getContext('2d');
+                     if (leadTrendCtx && currentData) {
+                         const trendData = currentData.reduce((acc, item) => { acc[item.Date] = (acc[item.Date] || 0) + (item.Leads || 0); return acc; }, {});
+                         const sortedDates = Object.keys(trendData).sort((a, b) => new Date(a) - new Date(b));
+                         chartInstances.leadTrendChart = new Chart(leadTrendCtx, { type: 'line', data: { labels: sortedDates, datasets: [{ label: 'Leads', data: sortedDates.map(d => trendData[d]), fill: true, borderColor: chartColors.blue, backgroundColor: colorArrayTransparent(0.1)[0], tension: 0.1 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true }, x: { type: 'time', time: { unit: 'day', tooltipFormat: 'MMM dd, yyyy', displayFormats: { day: 'MMM dd' } } } }, plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } }, interaction: { mode: 'nearest', axis: 'x', intersect: false } } });
+                     }
+
+                    // --- Radar Chart ---
+                    const radarCtx = canvasElements.radarChart?.getContext('2d');
+                    if (radarCtx && totalDaysInPeriod > 0 && currentMetrics.channelData) {
+                        const radarChannels = ["Paid Search", "Organic Search", "Social Media (Paid)", "Email Marketing", "Referral"];
+                        // Define metrics and if higher is better (true) or lower is better (false)
+                        const radarMetricDefs = {
+                            'Avg Daily Bookings': { higherIsBetter: true, fn: (d) => (d?.bookings || 0) / totalDaysInPeriod },
+                            'Lead -> Booking Rate': { higherIsBetter: true, fn: (d) => (d?.leads > 0 ? (d?.bookings || 0) / d.leads : 0) },
+                            'ROAS': { higherIsBetter: true, fn: (d) => (d?.spend > 0 ? (d?.revenue || 0) / d.spend : 0) }, // Only meaningful for paid
+                            'CAC': { higherIsBetter: false, fn: (d) => (d?.bookings > 0 ? (d?.spend || 0) / d.bookings : 0) }, // Lower is better
+                            'Bounce Rate': { higherIsBetter: false, fn: (d) => (d?.visitors > 0 ? (d?.bounces || 0) / d.visitors : 0) } // Lower is better
+                        };
+                        const radarLabels = Object.keys(radarMetricDefs);
+                        const rawValues = {}; // Store raw values for tooltips
+                        const channelValues = {}; // Store values per channel { channel: [val1, val2...] }
+
+                        // Calculate raw values
+                        radarChannels.forEach(ch => {
+                            const chData = currentMetrics.channelData[ch];
+                            rawValues[ch] = {};
+                            channelValues[ch] = radarLabels.map(metricKey => {
+                                const val = radarMetricDefs[metricKey].fn(chData);
+                                rawValues[ch][metricKey] = val; // Store raw value
+                                return isNaN(val) || !isFinite(val) ? 0 : val; // Use 0 for invalid numbers
+                            });
+                        });
+
+                        // Normalize data (0-1 scale) for each metric across selected channels
+                        const normalizedValues = {};
+                        radarLabels.forEach((metricKey, index) => {
+                            const valuesForMetric = radarChannels.map(ch => channelValues[ch][index]);
+                            const minVal = Math.min(...valuesForMetric);
+                            const maxVal = Math.max(...valuesForMetric);
+                            const range = maxVal - minVal;
+                            const higherIsBetter = radarMetricDefs[metricKey].higherIsBetter;
+
+                            radarChannels.forEach(ch => {
+                                if (!normalizedValues[ch]) normalizedValues[ch] = [];
+                                let normVal = 0;
+                                if (range > 0) {
+                                    normVal = (channelValues[ch][index] - minVal) / range;
+                                    if (!higherIsBetter) normVal = 1 - normVal; // Invert scale if lower is better
+                                } else if (maxVal !== 0) { // All values are the same, non-zero
+                                     normVal = higherIsBetter ? 1 : 0; // Assign max/min normalized score
+                                }
+                                normalizedValues[ch][index] = Math.max(0, Math.min(1, normVal)); // Clamp between 0 and 1
+                            });
+                        });
+
+                        // Create datasets
+                        const radarDatasets = radarChannels.map((ch, i) => ({
+                            label: ch,
+                            data: normalizedValues[ch],
+                            borderColor: colorArray[i % colorArray.length],
+                            backgroundColor: colorArrayTransparent(0.2)[i % colorArray.length],
+                            pointBackgroundColor: colorArray[i % colorArray.length],
+                            borderWidth: 2,
+                            raw: rawValues[ch] // Attach raw data for tooltips
+                        }));
+
+                         chartInstances.radarChart = new Chart(radarCtx, {
+                            type: 'radar',
+                            data: { labels: radarLabels, datasets: radarDatasets },
+                            options: {
+                                responsive: true, maintainAspectRatio: false,
+                                scales: { r: { beginAtZero: true, max: 1, min: 0, pointLabels: { font: { size: 11 } }, ticks: { stepSize: 0.2 } } }, // Scale 0-1
+                                plugins: {
+                                     legend: { position: 'top' },
+                                     tooltip: { // Custom tooltip to show raw values
+                                         callbacks: {
+                                             label: function(context) {
+                                                 const label = context.dataset.label || '';
+                                                 const metricKey = context.label;
+                                                 const rawVal = context.dataset.raw?.[metricKey];
+                                                 let formattedVal = rawVal?.toFixed(2) ?? 'N/A';
+                                                 // Use specific formatters for known types
+                                                  if (metricKey === 'ROAS') formattedVal = formatROAS(rawVal);
+                                                  else if (metricKey === 'CAC') formattedVal = formatCurrency(rawVal);
+                                                  else if (metricKey.includes('Rate')) formattedVal = formatPercent(rawVal);
+                                                  else if (metricKey.includes('Avg Daily')) formattedVal = formatNumber(rawVal);
+
+                                                 return `${label}: ${formattedVal} (Raw)`;
+                                             }
+                                         }
+                                     }
+                                }
+                            }
+                        });
+                    } else if (radarCtx) { console.warn("Radar chart skipped: totalDaysInPeriod=0 or missing data."); }
+
+                 } catch (error) { console.error("Error during chart creation:", error); }
+             }
+
+
+            // --- Simulation Logic ---
+             function runSimulation() {
+                 const { paidSearchSlider, socialPaidSlider, simBookings, simRevenue, simRoas, simCac } = simulationElements;
+                 if (!currentMetrics?.channelData || !paidSearchSlider || !simBookings) { console.warn("Simulation skipped: Missing metrics or elements."); return; }
+                 const psPercent = parseInt(paidSearchSlider.value, 10); const smPercent = parseInt(socialPaidSlider.value, 10);
+                 const basePsData = currentMetrics.channelData["Paid Search"] || {}; const baseSmData = currentMetrics.channelData["Social Media (Paid)"] || {};
+                 const basePaidSpend = (basePsData.spend || 0) + (baseSmData.spend || 0);
+                 if (basePaidSpend === 0) { simBookings.textContent = '0'; simRevenue.textContent = '$0'; simRoas.textContent = '0.0x'; simCac.textContent = '$0'; return; }
+
+                 const newPsSpend = basePaidSpend * (psPercent / 100); const newSmSpend = basePaidSpend * (smPercent / 100);
+                 const efficiencyExponent = 0.8; // Diminishing returns assumption
+
+                 const simFactor = (newSpend, baseSpend) => baseSpend > 0 ? Math.pow(newSpend / baseSpend, efficiencyExponent) : 0;
+                 const simPsBookings = (basePsData.bookings || 0) * simFactor(newPsSpend, basePsData.spend || 0);
+                 const simSmBookings = (baseSmData.bookings || 0) * simFactor(newSmSpend, baseSmData.spend || 0);
+                 const psABV = (basePsData.bookings || 0) > 0 ? (basePsData.revenue || 0) / basePsData.bookings : 0;
+                 const smABV = (baseSmData.bookings || 0) > 0 ? (baseSmData.revenue || 0) / baseSmData.bookings : 0;
+                 const simPsRevenue = simPsBookings * psABV; const simSmRevenue = simSmBookings * smABV;
+
+                 const nonPaidBookings = (currentMetrics.bookings || 0) - ((basePsData.bookings || 0) + (baseSmData.bookings || 0));
+                 const nonPaidRevenue = (currentMetrics.revenue || 0) - ((basePsData.revenue || 0) + (baseSmData.revenue || 0));
+                 const totalSimBookings = Math.max(0, simPsBookings + simSmBookings + nonPaidBookings);
+                 const totalSimRevenue = Math.max(0, simPsRevenue + simSmRevenue + nonPaidRevenue);
+                 const totalSimPaidSpend = newPsSpend + newSmSpend;
+                 const totalSimPaidBookings = simPsBookings + simSmBookings;
+
+                 const simPaidRoas = totalSimPaidSpend > 0 ? (simPsRevenue + simSmRevenue) / totalSimPaidSpend : 0;
+                 const simPaidCac = totalSimPaidBookings > 0 ? totalSimPaidSpend / totalSimPaidBookings : 0;
+
+                 simBookings.textContent = formatNumber(Math.round(totalSimBookings)); simRevenue.textContent = formatCurrency(Math.round(totalSimRevenue)); simRoas.textContent = formatROAS(simPaidRoas); simCac.textContent = formatCurrency(Math.round(simPaidCac));
+             }
+             function syncSliders(changedSlider) {
+                 const { paidSearchSlider, socialPaidSlider, paidSearchPercent, socialPaidPercent } = simulationElements;
+                 if (!paidSearchSlider || !socialPaidSlider) return;
+                 const total = 100, psVal = parseInt(paidSearchSlider.value), smVal = parseInt(socialPaidSlider.value);
+                 if (changedSlider === 'ps') socialPaidSlider.value = total - psVal; else if (changedSlider === 'sm') paidSearchSlider.value = total - smVal;
+                 if(paidSearchPercent) paidSearchPercent.textContent = paidSearchSlider.value; if(socialPaidPercent) socialPaidPercent.textContent = socialPaidSlider.value;
+                 runSimulation();
+             }
+
+
+            // ===============================================
+            // --- MAIN UPDATE FUNCTION ----------------------
+            // ===============================================
+            function updateDashboard() {
+                 console.log("--- Running updateDashboard ---");
+                 try {
+                    const selectedDateRange = dateRangeSelect.value;
+                    const selectedChannel = channelFilterSelect.value;
+                    console.log(`Filters - Date: ${selectedDateRange}, Channel: ${selectedChannel}`);
+
+                    const filteredResults = filterAllData(dummyData, selectedDateRange, selectedChannel);
+                    if (!filteredResults?.currentData) { console.error("Filtering failed, cannot update."); return; }
+                    const { currentData, previousData, currentDataAllChannels } = filteredResults;
+                    console.log(`Data Points - Current: ${currentData.length}, Previous: ${previousData.length}, All Channels: ${currentDataAllChannels.length}`);
+
+                    currentMetrics = calculateMetrics(currentData);
+                    previousMetrics = calculateMetrics(previousData); // Keep previous metrics for PoP
+                    console.log("Metrics Calculated. Current Bookings:", currentMetrics.bookings);
+
+                    // Update all UI components
+                    updateKPIs(currentMetrics, previousMetrics);
+                    updateFunnelComponent(currentMetrics);
+                    updateCampaignTable(currentMetrics.campaignData);
+                    updateCharts(currentData, currentMetrics, selectedChannel, currentDataAllChannels);
+                    runSimulation(); // Run simulation based on latest metrics
+
+                    // Pulse animation for KPIs
+                    Object.values(kpiElements).forEach(kpi => { if(kpi?.value) { kpi.value.style.animation = 'none'; void kpi.value.offsetWidth; kpi.value.style.animation = 'pulse 0.4s ease-out'; } });
+
+                    console.log("--- updateDashboard Finished Successfully ---");
+                 } catch (error) { console.error("Error during updateDashboard execution:", error); alert("An error occurred updating dashboard. Check console (F12)."); }
+            }
+
+            // ===============================================
+            // --- INITIALIZATION ----------------------------
+            // ===============================================
+            function initialize() {
+                console.log("Initializing dashboard components...");
+                // Populate channel filter
+                channels.forEach(channel => {
+                    const option = document.createElement('option'); option.value = channel; option.textContent = channel;
+                    if (channelFilterSelect) channelFilterSelect.appendChild(option);
+                });
+
+                // Add event listeners safely
+                if (dateRangeSelect) dateRangeSelect.addEventListener('change', updateDashboard); else console.warn("Date Range select not found");
+                if (channelFilterSelect) channelFilterSelect.addEventListener('change', updateDashboard); else console.warn("Channel Filter select not found");
+                if (simulationElements.paidSearchSlider) simulationElements.paidSearchSlider.addEventListener('input', () => syncSliders('ps')); else console.warn("PS Slider not found");
+                if (simulationElements.socialPaidSlider) simulationElements.socialPaidSlider.addEventListener('input', () => syncSliders('sm')); else console.warn("SM Slider not found");
+
+                console.log("Performing initial dashboard update...");
+                updateDashboard(); // Initial load
+                console.log("Dashboard initialized and first update complete.");
+            }
+
+            // --- Run Initialization ---
+            initialize();
+
+        }); // End DOMContentLoaded
+    </script>
+
+</body>
+</html>
